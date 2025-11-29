@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>小渝兒拆解爆款 - 随心换主题版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@400;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              'cute': ['"ZCOOL KuaiLe"', 'cursive'],
+              'sans': ['"Nunito"', '"Noto Sans SC"', 'sans-serif'],
+              'mono': ['"JetBrains Mono"', 'monospace'],
+            },
+            colors: {
+              theme: {
+                bg: 'var(--color-bg)',
+                surface: 'var(--color-surface)',
+                primary: 'var(--color-primary)',
+                secondary: 'var(--color-secondary)',
+                text: 'var(--color-text)',
+                'text-light': 'var(--color-text-light)',
+                border: 'var(--color-border)',
+              }
+            },
+            boxShadow: {
+              'theme-card': 'var(--shadow-card)',
+              'theme-btn': 'var(--shadow-button)',
+              'theme-inset': 'var(--shadow-inset)',
+            },
+            borderWidth: {
+              'theme': 'var(--border-width)',
+            },
+            borderRadius: {
+              'theme': 'var(--border-radius)',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      :root {
+        /* Default variables (overwritten by React) */
+        --color-bg: #f0f4f8;
+        --color-surface: #ffffff;
+        --color-primary: #ffb7c5;
+        --color-secondary: #a2d2ff;
+        --color-text: #4a5568;
+        --color-text-light: #a0aec0;
+        --color-border: rgba(255,255,255,0.5);
+        --shadow-card: 8px 8px 16px #d1d9e6, -8px -8px 16px #ffffff;
+        --shadow-button: 6px 6px 12px #b8b9be, -6px -6px 12px #ffffff;
+        --shadow-inset: inset 5px 5px 10px #d1d9e6, inset -5px -5px 10px #ffffff;
+        --border-width: 2px;
+        --border-radius: 2rem;
+      }
+
+      body {
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        overflow-x: hidden;
+        transition: background-color 0.5s ease, color 0.5s ease;
+      }
+
+      /* Cute Scrollbar */
+      ::-webkit-scrollbar {
+        width: 12px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--color-primary); 
+        border-radius: 10px;
+        border: 3px solid transparent;
+        background-clip: content-box;
+      }
+      
+      .font-cute {
+        font-family: 'ZCOOL KuaiLe', cursive;
+      }
+      
+      .theme-transition {
+        transition: all 0.3s ease-out;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "name": "xiaoyuer-Web Site Project",
+  "description": "少女新拟态粘土风界面，支持视频逐帧拆解与旁白二创。自动生成Sora提示词，一键复刻",
+  "requestFramePermissions": []
+}
