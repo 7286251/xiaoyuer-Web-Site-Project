@@ -5,6 +5,8 @@ import { AnalysisResult } from "../types";
 // Removed global instance to allow dynamic key injection
 // const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
+const MAX_INLINE_SIZE = 20 * 1024 * 1024; // 20MB Threshold
+
 const ANALYSIS_SCHEMA: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -153,8 +155,47 @@ export const analyzeVideoContent = async (
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    onProgress("小渝兒正在读取视频...", 10);
-    const base64Data = await fileToBase64(videoFile);
+    let mediaPart: any;
+    
+    // Automatic Switching: Base64 for small files, File API for large files (>20MB)
+    if (videoFile.size < MAX_INLINE_SIZE) {
+        onProgress("小渝兒正在读取视频...", 10);
+        const base64Data = await fileToBase64(videoFile);
+        mediaPart = { inlineData: { mimeType: videoFile.type, data: base64Data } };
+    } else {
+        onProgress("大文件检测：启动云端传输通道...", 10);
+        
+        // 1. Upload
+        const uploadResult = await ai.files.upload({
+           file: videoFile,
+           config: { displayName: videoFile.name, mimeType: videoFile.type }
+        });
+        
+        let file = uploadResult;
+        console.log(`[Gemini Upload] URI: ${file.uri}, State: ${file.state}`);
+
+        // 2. Poll for Active State
+        let attempts = 0;
+        const maxAttempts = 60; // 2 minutes max wait
+        
+        while (file.state === 'PROCESSING') {
+           attempts++;
+           if (attempts > maxAttempts) throw new Error("Video processing timed out in cloud.");
+           
+           onProgress(`正在云端处理视频... ${attempts * 2}s`, 10 + (attempts % 10));
+           await new Promise(resolve => setTimeout(resolve, 2000));
+           
+           const getResult = await ai.files.get({ name: file.name });
+           file = getResult;
+        }
+
+        if (file.state === 'FAILED') {
+           throw new Error("Cloud video processing failed.");
+        }
+
+        onProgress("云端就绪，开始分析...", 20);
+        mediaPart = { fileData: { fileUri: file.uri, mimeType: file.mimeType } };
+    }
     
     onProgress("启动全平台爆款分析引擎...", 30);
     const model = "gemini-2.5-flash"; 
@@ -222,7 +263,7 @@ export const analyzeVideoContent = async (
       model: model,
       contents: {
         parts: [
-          { inlineData: { mimeType: videoFile.type, data: base64Data } },
+          mediaPart,
           { text: promptText }
         ]
       },

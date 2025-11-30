@@ -1,11 +1,10 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { DynamicBackground } from './components/DynamicBackground';
 import { VideoBackground } from './components/VideoBackground';
 import { ThemeSelector } from './components/ThemeSelector';
 import { VideoUploader } from './components/VideoUploader';
 import { ResultCard } from './components/ResultCard';
-import { ThemeLoader } from './components/ClayLoader';
+import { DragonLoader } from './components/DragonLoader';
 import { VideoTrimmer } from './components/VideoTrimmer';
 import { PlatformMatrix } from './components/PlatformMatrix';
 import { FlipClock } from './components/FlipClock'; 
@@ -328,7 +327,7 @@ const App: React.FC = () => {
 
           {/* State 3: Analyzing */}
           {appState === AppState.ANALYZING && (
-            <ThemeLoader message={progressMsg} progress={progressPercent} uiLang={uiLang} />
+            <DragonLoader message={progressMsg} progress={progressPercent} uiLang={uiLang} />
           )}
 
           {/* State 4: Error */}
