@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Upload, Eraser, Download, RotateCcw, Image as ImageIcon, Sparkles, ScanLine, MousePointer2 } from 'lucide-react';
+import { X, Upload, Eraser, Download, RotateCcw, Image as ImageIcon, Sparkles, ScanLine, MousePointer2, ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 import { TRANSLATIONS } from '../utils/translations';
 
 interface WatermarkRemoverProps {
@@ -20,10 +20,17 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
   const [displayImage, setDisplayImage] = useState<HTMLImageElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
+  // Zoom State
+  const [zoom, setZoom] = useState(1);
+  const [baseDimensions, setBaseDimensions] = useState<{w: number, h: number} | null>(null);
+  
   // Selection State
   const [selection, setSelection] = useState<Rect | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startPos, setStartPos] = useState<{x: number, y: number} | null>(null);
+  
+  // Loupe State
+  const [pointerPos, setPointerPos] = useState<{x: number, y: number, clientX: number, clientY: number} | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -43,6 +50,7 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
           setOriginalImage(img);
           setDisplayImage(img);
           setSelection(null);
+          setZoom(1); // Reset zoom on new image
         };
         img.src = event.target?.result as string;
       };
@@ -105,9 +113,12 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
         renderHeight = maxHeight;
         renderWidth = maxHeight * imgRatio;
       }
-
+      
+      // Set Internal Pixel Resolution
       canvasRef.current.width = renderWidth;
       canvasRef.current.height = renderHeight;
+      
+      setBaseDimensions({ w: renderWidth, h: renderHeight });
 
       // Initial draw
       draw();
@@ -119,12 +130,34 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
     draw();
   }, [selection, displayImage]);
 
+  // Wheel Zoom Support
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onWheel = (e: WheelEvent) => {
+      // Allow zoom with Ctrl+Wheel (standard convention) or just wheel if explicit
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.deltaY < 0) {
+           setZoom(prev => Math.min(prev + 0.5, 4));
+        } else {
+           setZoom(prev => Math.max(prev - 0.5, 1));
+        }
+      }
+    };
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+    return () => container.removeEventListener('wheel', onWheel);
+  }, []);
 
   // --- Input Handling (Mouse & Touch) ---
 
   const getCoords = (e: React.MouseEvent | React.TouchEvent) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
-    const rect = canvasRef.current.getBoundingClientRect();
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect(); // Get visual dimensions (affected by zoom)
     
     let clientX, clientY;
     if ('touches' in e) {
@@ -135,17 +168,25 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
       clientY = (e as React.MouseEvent).clientY;
     }
 
+    // Calculate position relative to the visual element
+    const visualX = clientX - rect.left;
+    const visualY = clientY - rect.top;
+
+    // Calculate scaling factor between Visual Size (CSS) and Internal Resolution (Canvas attributes)
+    // This allows getCoords to work perfectly regardless of CSS zoom
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
     return {
-      x: clientX - rect.left,
-      y: clientY - rect.top
+      x: visualX * scaleX,
+      y: visualY * scaleY
     };
   };
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
     if (!displayImage) return;
-    // Prevent scrolling on touch devices while drawing
     if ('touches' in e && e.cancelable) {
-       // e.preventDefault(); // Optional: might block page scroll entirely
+       // e.preventDefault(); 
     }
     
     setIsDragging(true);
@@ -161,6 +202,18 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
     }
 
     const coords = getCoords(e);
+    
+    // Capture pointer client position for Loupe
+    let clientX, clientY;
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
+    }
+    setPointerPos({ x: coords.x, y: coords.y, clientX, clientY });
+
     const width = coords.x - startPos.x;
     const height = coords.y - startPos.y;
 
@@ -174,7 +227,13 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
 
   const handleEnd = () => {
     setIsDragging(false);
+    setPointerPos(null);
   };
+
+  // --- Zoom Handlers ---
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.5, 4));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.5, 1));
+  const handleZoomReset = () => setZoom(1);
 
   // --- Advanced Inpainting Algorithm ---
   const processRemoval = () => {
@@ -202,43 +261,18 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
         const endX = Math.min(canvas.width, Math.ceil(x + w));
         const endY = Math.min(canvas.height, Math.ceil(y + h));
         
-        // "Patch-Based" Inpainting Approximation
-        // For each pixel in the selection, find a "source" pixel from the immediate outside border
-        // This is a simplified "Texture Synthesis" / "Nearest Neighbor" approach
-        
-        // Strategy: 
-        // Iterate inward from the borders of the selection.
-        // Fill each pixel with a weighted average of its already-known neighbors.
-        // Repeat multiple passes to diffuse the texture into the center.
-        
-        // Safety check
         if (endX <= startX || endY <= startY) {
             setIsProcessing(false);
             return;
         }
 
-        // We will do a multi-pass diffusion
-        // Pass 1: Horizontal Fill
-        // Pass 2: Vertical Fill
-        // Pass 3: Blur/Blend
-        
         // Helper to get pixel index
         const idx = (x: number, y: number) => (y * width + x) * 4;
 
-        // Create a temporary buffer for the selection area
-        const patchW = endX - startX;
-        const patchH = endY - startY;
-        
         // --- Smart Content Aware Fill (Simplified) ---
-        // We scan lines and fill holes with neighboring valid pixels
-        
         for (let py = startY; py < endY; py++) {
             for (let px = startX; px < endX; px++) {
                 const i = idx(px, py);
-                
-                // Find nearest valid pixels (Left, Right, Top, Bottom) outside the box
-                // For a true "content aware", we'd search distinct patches, but for speed in JS:
-                // We pick a source point relative to the border.
                 
                 // Distance to each border
                 const distL = px - startX;
@@ -277,18 +311,13 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
         ctx.putImageData(imageData, 0, 0);
         
         // --- Blending Pass ---
-        // Apply a localized blur to smooth the seams and the internal texture
         ctx.save();
         ctx.beginPath();
-        ctx.rect(x - 2, y - 2, w + 4, h + 4); // Slightly larger area
+        ctx.rect(x - 2, y - 2, w + 4, h + 4); 
         ctx.clip();
-        ctx.filter = 'blur(4px)'; // Adjust blur amount based on size?
+        ctx.filter = 'blur(4px)'; 
         ctx.drawImage(canvas, 0, 0);
         ctx.filter = 'none';
-        
-        // Add noise back to simulate texture
-        // (Optional advanced step, skipped for performance)
-        
         ctx.restore();
 
         // Update state
@@ -317,6 +346,7 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
   const handleReset = () => {
       setDisplayImage(originalImage);
       setSelection(null);
+      setZoom(1);
   };
 
   return (
@@ -346,7 +376,7 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
         
         {/* Editor Area */}
         <div 
-          className="w-full min-h-[400px] bg-theme-bg rounded-2xl border-2 border-theme-border shadow-theme-inset relative overflow-hidden flex flex-col items-center justify-center select-none" 
+          className="w-full min-h-[400px] bg-theme-bg rounded-2xl border-2 border-theme-border shadow-theme-inset relative flex flex-col items-center justify-center select-none group" 
           ref={containerRef}
         >
             {!displayImage ? (
@@ -361,29 +391,99 @@ export const WatermarkRemover: React.FC<WatermarkRemoverProps> = ({ lang }) => {
                  <p className="text-theme-text-light text-sm">支持 JPG, PNG, WebP</p>
               </div>
             ) : (
-              <div className="relative w-full h-full flex items-center justify-center bg-[url('https://www.transparenttextures.com/patterns/grid-me.png')]">
-                 <canvas 
-                   ref={canvasRef}
-                   onMouseDown={handleStart}
-                   onMouseMove={handleMove}
-                   onMouseUp={handleEnd}
-                   onMouseLeave={handleEnd}
-                   onTouchStart={handleStart}
-                   onTouchMove={handleMove}
-                   onTouchEnd={handleEnd}
-                   className={`max-w-full shadow-lg touch-none cursor-crosshair ${isProcessing ? 'opacity-80 blur-[1px]' : ''}`}
-                 />
+              // Scrollable Container for Zoom
+              <div className="w-full h-full min-h-[400px] overflow-auto relative bg-[url('https://www.transparenttextures.com/patterns/grid-me.png')] rounded-2xl custom-scrollbar">
+                 <div 
+                   className="flex items-center justify-center min-h-full min-w-full p-4"
+                   style={{
+                     // Container grows with zoom
+                   }}
+                 >
+                   <canvas 
+                     ref={canvasRef}
+                     onMouseDown={handleStart}
+                     onMouseMove={handleMove}
+                     onMouseUp={handleEnd}
+                     onMouseLeave={handleEnd}
+                     onTouchStart={handleStart}
+                     onTouchMove={handleMove}
+                     onTouchEnd={handleEnd}
+                     className={`shadow-lg touch-none ${isDragging ? 'cursor-none' : 'cursor-crosshair'} transition-all duration-200 ease-out origin-center ${isProcessing ? 'opacity-80 blur-[1px]' : ''}`}
+                     style={{
+                        width: baseDimensions ? `${baseDimensions.w * zoom}px` : 'auto',
+                        height: baseDimensions ? `${baseDimensions.h * zoom}px` : 'auto',
+                     }}
+                   />
+                 </div>
+                 
+                 {/* Magnifier Loupe (Fixed Position) */}
+                 {isDragging && pointerPos && displayImage && baseDimensions && (
+                   <div 
+                     className="fixed z-50 pointer-events-none rounded-full border-4 border-white shadow-[0_0_20px_rgba(0,0,0,0.3)] overflow-hidden bg-white animate-pop-in"
+                     style={{
+                       width: 160,
+                       height: 160,
+                       left: pointerPos.clientX - 80,
+                       top: pointerPos.clientY - 80,
+                     }}
+                   >
+                      {/* Image Layer */}
+                      <div 
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          backgroundImage: `url(${displayImage.src})`,
+                          backgroundRepeat: 'no-repeat',
+                          // 2x Zoom relative to current view
+                          backgroundSize: `${baseDimensions.w * zoom * 2}px ${baseDimensions.h * zoom * 2}px`,
+                          backgroundPosition: `-${pointerPos.x * zoom * 2 - 80}px -${pointerPos.y * zoom * 2 - 80}px`
+                        }}
+                      />
+                      {/* Crosshair */}
+                      <div className="absolute inset-0 flex items-center justify-center opacity-40">
+                        <div className="w-full h-0.5 bg-red-500 absolute"></div>
+                        <div className="h-full w-0.5 bg-red-500 absolute"></div>
+                      </div>
+                   </div>
+                 )}
                  
                  {/* Processing Overlay */}
                  {isProcessing && (
-                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center">
-                      <div className="absolute inset-0 bg-theme-surface/50 backdrop-blur-sm"></div>
+                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none sticky top-0 h-full">
                       <div className="relative bg-theme-surface p-4 rounded-xl shadow-theme-card border-2 border-theme-border flex flex-col items-center animate-bounce">
                          <Sparkles className="w-8 h-8 text-theme-primary mb-2 animate-spin" />
                          <span className="font-bold text-theme-text">{t.wmProcessing}</span>
                       </div>
                    </div>
                  )}
+
+                 {/* Floating Zoom Controls */}
+                 <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2 sticky float-right">
+                    <div className="bg-theme-surface/90 backdrop-blur rounded-xl shadow-theme-card border border-theme-border p-1.5 flex flex-col gap-1">
+                      <button 
+                        onClick={handleZoomIn} 
+                        className="p-2 hover:bg-theme-bg rounded-lg text-theme-text transition-colors"
+                        title="Zoom In (Ctrl + Wheel)"
+                      >
+                        <ZoomIn className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={handleZoomOut} 
+                        className="p-2 hover:bg-theme-bg rounded-lg text-theme-text transition-colors"
+                        title="Zoom Out (Ctrl + Wheel)"
+                      >
+                         <ZoomOut className="w-5 h-5" />
+                      </button>
+                      <div className="h-px bg-theme-border w-full my-0.5"></div>
+                      <button 
+                        onClick={handleZoomReset} 
+                        className="p-2 hover:bg-theme-bg rounded-lg text-theme-text transition-colors text-xs font-bold"
+                        title="Reset Zoom"
+                      >
+                        {Math.round(zoom * 100)}%
+                      </button>
+                    </div>
+                 </div>
               </div>
             )}
         </div>

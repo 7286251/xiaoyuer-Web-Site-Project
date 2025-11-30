@@ -8,12 +8,13 @@ import { ResultCard } from './components/ResultCard';
 import { ThemeLoader } from './components/ClayLoader';
 import { VideoTrimmer } from './components/VideoTrimmer';
 import { PlatformMatrix } from './components/PlatformMatrix';
-import { WatermarkRemover } from './components/WatermarkRemover';
 import { FlipClock } from './components/FlipClock'; 
 import { InfoDisplay } from './components/InfoDisplay'; 
+import { FeedbackModal } from './components/FeedbackModal';
+import { ApiKeyModal } from './components/ApiKeyModal';
 import { analyzeVideoContent } from './services/geminiService';
 import { AnalysisResult, AppState, Theme, VideoWallpaper, BackgroundMode } from './types';
-import { Wand2, RefreshCw, PenTool, Sparkles, Palette, Globe, Volume2, VolumeX, Volume1, Play, ArrowRight, MessageSquare, Eraser } from 'lucide-react';
+import { Wand2, RefreshCw, PenTool, Sparkles, Palette, Globe, Volume2, VolumeX, Volume1, Play, ArrowRight, MessageSquare, Eraser, Key } from 'lucide-react';
 import { DEFAULT_THEME } from './utils/themeGenerator';
 import { TRANSLATIONS } from './utils/translations';
 
@@ -44,6 +45,11 @@ const App: React.FC = () => {
   const [prevVolume, setPrevVolume] = useState(0.5); 
   
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  
+  // API Key State
+  const [apiKey, setApiKey] = useState<string>('');
+  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
 
   // Language Toggle State
   const [uiLang, setUiLang] = useState<'cn' | 'en'>('cn');
@@ -51,6 +57,20 @@ const App: React.FC = () => {
 
   const resultRef = useRef<HTMLDivElement>(null);
   const t = TRANSLATIONS[uiLang];
+
+  // Load API Key on Mount
+  useEffect(() => {
+    const storedKey = localStorage.getItem('gemini_api_key');
+    if (storedKey) {
+      setApiKey(storedKey);
+    } else {
+      // If no key found in local storage, check env. If neither, prompt user.
+      if (!process.env.API_KEY) {
+        // Short delay to ensure UI renders first
+        setTimeout(() => setIsKeyModalOpen(true), 1000);
+      }
+    }
+  }, []);
 
   // Apply Theme CSS Variables
   useEffect(() => {
@@ -90,6 +110,14 @@ const App: React.FC = () => {
 
   const handleTrimConfirm = async (startTime: number, endTime: number, resolution: string) => {
     if (!sourceFile) return;
+
+    // Check for API Key before starting
+    const activeKey = apiKey || process.env.API_KEY;
+    if (!activeKey) {
+      setIsKeyModalOpen(true);
+      return;
+    }
+
     setIsTrimming(false);
     setAppState(AppState.ANALYZING);
     setProgressPercent(0);
@@ -102,7 +130,8 @@ const App: React.FC = () => {
         (msg, percent) => {
           setProgressMsg(msg);
           setProgressPercent(percent);
-        }
+        },
+        activeKey // Pass the key
       );
       setResult(analysisData);
       setAppState(AppState.COMPLETED);
@@ -113,6 +142,10 @@ const App: React.FC = () => {
       console.error(error);
       setAppState(AppState.ERROR);
       setErrorMsg(error.message || "视频解析失败，请检查网络或 Key。");
+      // If error suggests auth failure, re-open modal
+      if (error.message && (error.message.includes('Key') || error.message.includes('403') || error.message.includes('400'))) {
+         setIsKeyModalOpen(true);
+      }
     }
   };
 
@@ -182,15 +215,28 @@ const App: React.FC = () => {
         onSelectTheme={(theme) => {
           setCurrentTheme(theme);
           setBackgroundMode('css');
-          // Removed automatic closing to allow real-time preview
+          setIsThemeSelectorOpen(false); // Auto close
         }}
         onSelectVideo={(video) => {
           setCurrentVideo(video);
           setBackgroundMode('video');
           setIsVideoMuted(false); 
           setVideoVolume(0.5);
-          // Removed automatic closing
+          setIsThemeSelectorOpen(false); // Auto close
         }}
+        uiLang={uiLang}
+      />
+
+      <FeedbackModal 
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
+        uiLang={uiLang}
+      />
+
+      <ApiKeyModal 
+        isOpen={isKeyModalOpen}
+        onClose={() => setIsKeyModalOpen(false)}
+        onSave={(key) => setApiKey(key)}
         uiLang={uiLang}
       />
       
@@ -241,29 +287,33 @@ const App: React.FC = () => {
               <span className="text-theme-text-light font-bold text-sm">{t.themeBtn}</span>
               <div className="w-2 h-2 rounded-full bg-theme-primary animate-pulse"></div>
             </button>
+            
+            {/* API Key Button */}
+            <button 
+              onClick={() => setIsKeyModalOpen(true)}
+              className="group flex items-center gap-2 px-6 py-2 bg-theme-surface rounded-full shadow-theme-btn border-theme border-theme-border hover:scale-105 transition-all cursor-pointer backdrop-blur-sm bg-opacity-90"
+            >
+              <Key className="w-4 h-4 text-theme-text group-hover:text-yellow-500 transition-colors" />
+              <span className="text-theme-text-light font-bold text-sm">{t.keyBtn}</span>
+              {apiKey && <div className="w-2 h-2 rounded-full bg-green-400"></div>}
+            </button>
 
             {/* Feedback Button */}
-            <a 
-              href="https://forms.google.com" // Placeholder
-              target="_blank"
-              rel="noopener noreferrer"
+            <button 
+              onClick={() => setIsFeedbackOpen(true)}
               className="group flex items-center gap-2 px-6 py-2 bg-theme-surface rounded-full shadow-theme-btn border-theme border-theme-border hover:scale-105 transition-all cursor-pointer backdrop-blur-sm bg-opacity-90"
             >
               <MessageSquare className="w-4 h-4 text-theme-text group-hover:text-theme-primary transition-colors" />
               <span className="text-theme-text-light font-bold text-sm">{t.feedbackBtn}</span>
-            </a>
+            </button>
           </div>
         </header>
 
         <div className="w-full transition-all duration-500">
           
-          {/* State 1: Upload & Watermark (Idle) */}
+          {/* State 1: Upload (Idle) */}
           {appState === AppState.IDLE && !isTrimming && (
-            <>
-              <VideoUploader onFileSelect={handleFileSelect} isAnalyzing={false} uiLang={uiLang} />
-              {/* Inline Watermark Remover */}
-              <WatermarkRemover lang={uiLang} />
-            </>
+            <VideoUploader onFileSelect={handleFileSelect} isAnalyzing={false} uiLang={uiLang} />
           )}
 
           {/* State 2: Trimming */}

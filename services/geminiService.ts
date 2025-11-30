@@ -2,7 +2,8 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { AnalysisResult } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Removed global instance to allow dynamic key injection
+// const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 const ANALYSIS_SCHEMA: Schema = {
   type: Type.OBJECT,
@@ -114,16 +115,42 @@ const formatTimeForPrompt = (seconds: number) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+/**
+ * Validates the API Key by making a minimal request
+ */
+export const validateApiKey = async (apiKey: string): Promise<boolean> => {
+  if (!apiKey) return false;
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    // Minimal request to test connectivity and auth
+    await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: "test",
+    });
+    return true;
+  } catch (error) {
+    console.warn("API Key Validation Failed:", error);
+    return false;
+  }
+};
+
 export const analyzeVideoContent = async (
   videoFile: File,
   timeRange: { start: number, end: number } | null,
   resolution: string,
-  onProgress: (msg: string, percent: number) => void
+  onProgress: (msg: string, percent: number) => void,
+  userApiKey?: string 
 ): Promise<AnalysisResult> => {
   
-  if (!process.env.API_KEY) {
-    throw new Error("No API Key found.");
+  // Priority: User Provided Key > Env Variable
+  const apiKey = userApiKey || process.env.API_KEY;
+
+  if (!apiKey) {
+    throw new Error("No API Key found. Please enter your Google Gemini API Key.");
   }
+
+  // Create instance with the specific key for this request
+  const ai = new GoogleGenAI({ apiKey });
 
   try {
     onProgress("小渝兒正在读取视频...", 10);

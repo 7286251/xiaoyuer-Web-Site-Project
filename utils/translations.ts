@@ -7,6 +7,11 @@ export const TRANSLATIONS = {
     themeBtn: "随心换主题 / 视频壁纸",
     feedbackBtn: "问题反馈",
     
+    // Key Modal
+    keyBtn: "密钥设置",
+    keyTitle: "API 密钥设置",
+    keyDesc: "配置您的 Gemini API Key 以使用 AI 功能",
+    
     // Upload
     uploadTitle: "拖入爆款视频",
     uploadDesc: "支持 MP4, MOV。小渝兒将自动识别黄金三秒钩子。",
@@ -62,6 +67,11 @@ export const TRANSLATIONS = {
     appSubtitle: "Viral Dismantle",
     themeBtn: "Themes / Wallpaper",
     feedbackBtn: "Feedback",
+
+    // Key Modal
+    keyBtn: "API Key",
+    keyTitle: "API Key Setup",
+    keyDesc: "Configure your Gemini API Key to enable AI features",
 
     // Upload
     uploadTitle: "Drop Viral Video",
