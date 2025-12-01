@@ -36,29 +36,125 @@ const BASE_COLORS = [
   { p: '#fbbf24', s: '#ef4444', bg: '#fffbeb' }, 
 ];
 
-// Rich Neo-Brutalism Palettes (Vibrant, High Contrast, Beautiful)
-const NEO_BRUTALISM_PALETTES = [
-  { name: 'Cyber Lemon', bg: '#FEF08A', surface: '#FFFFFF', p: '#F59E0B', s: '#3B82F6', text: '#000000' },
-  { name: 'Hot Pink', bg: '#FBCFE8', surface: '#FFFFFF', p: '#EC4899', s: '#10B981', text: '#000000' },
-  { name: 'Electric Blue', bg: '#BFDBFE', surface: '#FFFFFF', p: '#2563EB', s: '#F59E0B', text: '#000000' },
-  { name: 'Toxic Green', bg: '#BBF7D0', surface: '#FFFFFF', p: '#16A34A', s: '#9333EA', text: '#000000' },
-  { name: 'Ultra Violet', bg: '#E9D5FF', surface: '#FFFFFF', p: '#9333EA', s: '#F472B6', text: '#000000' },
-  { name: 'Sunset Blvd', bg: '#FED7AA', surface: '#FFFFFF', p: '#EA580C', s: '#06B6D4', text: '#000000' },
-  { name: 'Monochrome', bg: '#F3F4F6', surface: '#FFFFFF', p: '#000000', s: '#EF4444', text: '#000000' },
-  { name: 'Mint Fresh', bg: '#99F6E4', surface: '#FFFFFF', p: '#0D9488', s: '#F43F5E', text: '#000000' },
-  { name: 'Neo Rose', bg: '#FECDD3', surface: '#FFFFFF', p: '#E11D48', s: '#4F46E5', text: '#000000' },
-  { name: 'Glitch Pop', bg: '#E0E7FF', surface: '#FFFFFF', p: '#4F46E5', s: '#FACC15', text: '#000000' },
-  { name: 'Acid Lime', bg: '#D9F99D', surface: '#FFFFFF', p: '#65A30D', s: '#DB2777', text: '#000000' },
-  { name: 'Aqua Marine', bg: '#A5F3FC', surface: '#FFFFFF', p: '#0891B2', s: '#F97316', text: '#000000' },
+const STYLES: ThemeStyle[] = ['clay', 'brutalism', 'neumorphism', 'sticker', 'flat'];
+
+// --- Advanced Brutalism Helpers ---
+
+const BRUTAL_BG_COLORS = ['#FFFFFF', '#F0F0F0', '#EAEAEA', '#FFF8E1', '#E0F7FA', '#F3E5F5', '#FFF3E0', '#E8F5E9'];
+const BRUTAL_ACCENT_COLORS = [
+  '#FF00D6', '#00E0FF', '#FFC900', '#7000FF', '#FF005C', 
+  '#00FF94', '#FF4D00', '#FAFF00', '#0047FF', '#FF0055', 
+  '#6D00FF', '#00FF7F', '#FF2A6D', '#05D9E8', '#D1F7FF'
 ];
 
-const STYLES: ThemeStyle[] = ['clay', 'brutalism', 'neumorphism', 'sticker', 'flat'];
+// Helper to pick random item
+const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+// Generate a unique Neo-Brutalism theme
+const generateBrutalTheme = (index: number): Theme => {
+  // 1. Determine Sub-Style DNA
+  const subStyles = ['glitch', 'swiss', 'pop', 'retro'];
+  const dna = pick(subStyles);
+
+  let bg = pick(BRUTAL_BG_COLORS);
+  let primary = pick(BRUTAL_ACCENT_COLORS);
+  let secondary = pick(BRUTAL_ACCENT_COLORS);
+  
+  // Ensure contrast
+  while (primary === secondary) secondary = pick(BRUTAL_ACCENT_COLORS);
+
+  let borderRadius = '0px';
+  let borderWidth = '3px';
+  let shadowDistance = 4;
+  let shadowColor = '#000000';
+  let font = 'font-sans';
+  let borderStyle = 'solid';
+
+  switch (dna) {
+    case 'glitch':
+      bg = '#F0F0F0'; // Light grey base
+      primary = '#FF00FF'; // Magenta
+      secondary = '#00FF00'; // Lime
+      borderRadius = '0px';
+      borderWidth = '4px';
+      shadowDistance = 6;
+      font = 'font-mono';
+      break;
+    case 'swiss':
+      bg = '#FFFFFF';
+      primary = '#FF3B30'; // Swiss Red
+      secondary = '#007AFF'; // Swiss Blue
+      borderRadius = '0px';
+      borderWidth = '2px';
+      shadowDistance = 0; // Flat, rely on grid lines (simulated by border)
+      font = 'font-sans';
+      break;
+    case 'pop':
+      bg = '#FFFBEB'; // Warm paper
+      primary = '#FF6B6B'; // Pastel Red
+      secondary = '#4ECDC4'; // Teal
+      borderRadius = '1rem';
+      borderWidth = '3px';
+      shadowDistance = 5;
+      font = 'font-cute';
+      break;
+    case 'retro':
+      bg = '#FFFAF0'; // Floral White
+      primary = '#FF9F1C'; // Orange
+      secondary = '#2EC4B6'; // Cyan
+      borderRadius = '0.5rem';
+      borderWidth = '3px';
+      shadowDistance = 4;
+      font = 'font-mono';
+      break;
+  }
+
+  // Randomize slightly within DNA to ensure uniqueness
+  const shadowOffsetX = (Math.random() > 0.5 ? 1 : -1) * shadowDistance;
+  const shadowOffsetY = shadowDistance;
+  
+  const cardShadow = `${shadowOffsetX}px ${shadowOffsetY}px 0px ${shadowColor}`;
+  const btnShadow = `${shadowOffsetX/1.5}px ${shadowOffsetY/1.5}px 0px ${shadowColor}`;
+  
+  const adj = ADJECTIVES[index % ADJECTIVES.length];
+  const noun = NOUNS[(index * 7) % NOUNS.length];
+
+  return {
+    id: `brutal-${index}-${dna}`,
+    name: `${dna.toUpperCase()} ${adj} ${noun}`,
+    style: 'brutalism',
+    colors: {
+      bg,
+      surface: '#FFFFFF',
+      primary,
+      secondary,
+      text: '#000000',
+      textLight: '#333333',
+      border: '#000000',
+    },
+    borderRadius,
+    borderWidth,
+    shadows: {
+      card: cardShadow,
+      button: btnShadow,
+      inset: `inset ${shadowDistance/2}px ${shadowDistance/2}px 0px rgba(0,0,0,0.1)`
+    },
+    font
+  };
+};
 
 const generateThemes = (): Theme[] => {
   const themes: Theme[] = [];
   
   for (let i = 0; i < 200; i++) {
     const style = STYLES[i % STYLES.length];
+    
+    // Special handling for Brutalism to ensure diversity
+    if (style === 'brutalism') {
+      themes.push(generateBrutalTheme(i));
+      continue;
+    }
+
     const colorIndex = (i + Math.floor(i / STYLES.length)) % BASE_COLORS.length;
     const colorBase = BASE_COLORS[colorIndex];
     
@@ -93,29 +189,6 @@ const generateThemes = (): Theme[] => {
       theme.shadows.button = '6px 6px 12px rgba(166,180,200,0.4), -6px -6px 12px #ffffff';
       theme.shadows.inset = 'inset 5px 5px 10px rgba(166,180,200,0.4), inset -5px -5px 10px #ffffff';
       theme.font = 'font-cute';
-    } else if (style === 'brutalism') {
-      // NEO-BRUTALISM DESIGN STYLE (Based on reference images)
-      const palette = NEO_BRUTALISM_PALETTES[i % NEO_BRUTALISM_PALETTES.length];
-      
-      theme.name = palette.name + ' ' + (Math.floor(i / NEO_BRUTALISM_PALETTES.length) + 1);
-      
-      theme.borderRadius = '1rem'; // Distinct rounded corners (not 0, but not full pill for cards)
-      theme.borderWidth = '3px'; // Bold borders
-      
-      theme.colors.bg = palette.bg;
-      theme.colors.surface = palette.surface;
-      theme.colors.primary = palette.p;
-      theme.colors.secondary = palette.s;
-      theme.colors.border = '#000000'; // Always black border
-      theme.colors.text = '#000000';   // Always black text
-      theme.colors.textLight = '#4B5563';
-      
-      // Hard, solid black shadows, offset to bottom-right
-      theme.shadows.card = '6px 6px 0px #000000';
-      theme.shadows.button = '4px 4px 0px #000000';
-      theme.shadows.inset = 'inset 4px 4px 0px rgba(0,0,0,0.1)';
-      theme.font = 'font-sans'; // Clean sans-serif
-      
     } else if (style === 'neumorphism') {
       theme.colors.bg = '#e0e5ec';
       theme.colors.surface = '#e0e5ec';
@@ -138,9 +211,9 @@ const generateThemes = (): Theme[] => {
       theme.colors.bg = '#ffffff';
       theme.colors.surface = '#ffffff';
       theme.colors.border = '#1f2937';
-      theme.borderWidth = '3px';
+      theme.borderWidth = '2px';
       theme.shadows.card = '0 4px 6px -1px rgba(0,0,0,0.1)';
-      theme.shadows.button = '0 8px 0px #1f2937';
+      theme.shadows.button = '0 4px 0px #1f2937';
       theme.font = 'font-cute';
     }
 

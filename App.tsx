@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { DynamicBackground } from './components/DynamicBackground';
 import { VideoBackground } from './components/VideoBackground';
@@ -11,9 +12,11 @@ import { FlipClock } from './components/FlipClock';
 import { InfoDisplay } from './components/InfoDisplay'; 
 import { FeedbackModal } from './components/FeedbackModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
-import { analyzeVideoContent } from './services/geminiService';
-import { AnalysisResult, AppState, Theme, VideoWallpaper, BackgroundMode } from './types';
-import { Wand2, RefreshCw, PenTool, Sparkles, Palette, Globe, Volume2, VolumeX, Volume1, Play, ArrowRight, MessageSquare, Eraser, Key } from 'lucide-react';
+import { GuideModal } from './components/GuideModal';
+import { DeepAnalysisView } from './components/DeepAnalysisView'; // Import
+import { analyzeVideoContent, analyzeDeepContent } from './services/geminiService'; // Import deep service
+import { AnalysisResult, DeepAnalysisResult, AppState, Theme, VideoWallpaper, BackgroundMode } from './types';
+import { Wand2, RefreshCw, PenTool, Sparkles, Palette, Globe, Volume2, VolumeX, Volume1, Play, ArrowRight, MessageSquare, Eraser, Key, HelpCircle } from 'lucide-react';
 import { DEFAULT_THEME } from './utils/themeGenerator';
 import { TRANSLATIONS } from './utils/translations';
 
@@ -21,7 +24,11 @@ const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
   const [progressMsg, setProgressMsg] = useState<string>('');
   const [progressPercent, setProgressPercent] = useState<number>(0);
+  
+  // Results
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [deepResult, setDeepResult] = useState<DeepAnalysisResult | null>(null);
+  
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -45,6 +52,7 @@ const App: React.FC = () => {
   
   const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   
   // API Key State
   const [apiKey, setApiKey] = useState<string>('');
@@ -68,6 +76,12 @@ const App: React.FC = () => {
         // Short delay to ensure UI renders first
         setTimeout(() => setIsKeyModalOpen(true), 1000);
       }
+    }
+
+    // Check Guide
+    const hasSeenGuide = localStorage.getItem('has_seen_guide');
+    if (!hasSeenGuide) {
+       setTimeout(() => setIsGuideOpen(true), 2000);
     }
   }, []);
 
@@ -107,7 +121,8 @@ const App: React.FC = () => {
     }
   }, [sourceFile]);
 
-  const handleTrimConfirm = async (startTime: number, endTime: number, resolution: string) => {
+  // Unified Handler for Analysis
+  const handleTrimConfirm = async (startTime: number, endTime: number, resolution: string, mode: 'viral' | 'deep') => {
     if (!sourceFile) return;
 
     // Check for API Key before starting
@@ -120,23 +135,41 @@ const App: React.FC = () => {
     setIsTrimming(false);
     setAppState(AppState.ANALYZING);
     setProgressPercent(0);
+    setResult(null); // Clear previous results
+    setDeepResult(null);
 
     try {
-      const analysisData = await analyzeVideoContent(
-        sourceFile, 
-        { start: startTime, end: endTime },
-        resolution,
-        (msg, percent) => {
-          setProgressMsg(msg);
-          setProgressPercent(percent);
-        },
-        activeKey // Pass the key
-      );
-      setResult(analysisData);
+      if (mode === 'viral') {
+          const analysisData = await analyzeVideoContent(
+            sourceFile, 
+            { start: startTime, end: endTime },
+            resolution,
+            (msg, percent) => {
+              setProgressMsg(msg);
+              setProgressPercent(percent);
+            },
+            activeKey 
+          );
+          setResult(analysisData);
+      } else {
+          // DEEP ANALYSIS MODE
+          const analysisData = await analyzeDeepContent(
+            sourceFile, 
+            { start: startTime, end: endTime },
+            (msg, percent) => {
+              setProgressMsg(msg);
+              setProgressPercent(percent);
+            },
+            activeKey 
+          );
+          setDeepResult(analysisData);
+      }
+
       setAppState(AppState.COMPLETED);
       setTimeout(() => {
         resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
+
     } catch (error: any) {
       console.error(error);
       setAppState(AppState.ERROR);
@@ -161,6 +194,7 @@ const App: React.FC = () => {
   const resetApp = () => {
     setAppState(AppState.IDLE);
     setResult(null);
+    setDeepResult(null);
     setErrorMsg(null);
     setSourceFile(null);
     setIsTrimming(false);
@@ -238,6 +272,12 @@ const App: React.FC = () => {
         onSave={(key) => setApiKey(key)}
         uiLang={uiLang}
       />
+
+      <GuideModal 
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        uiLang={uiLang}
+      />
       
       {/* Floating Audio Control */}
       {backgroundMode === 'video' && currentVideo.url && (
@@ -297,6 +337,15 @@ const App: React.FC = () => {
               {apiKey && <div className="w-2 h-2 rounded-full bg-green-400"></div>}
             </button>
 
+            {/* Guide Button (RENAMED TO REPLICATION TOOL) */}
+            <button 
+              onClick={() => setIsGuideOpen(true)}
+              className="group flex items-center gap-2 px-6 py-2 bg-theme-surface rounded-full shadow-theme-btn border-theme border-theme-border hover:scale-105 transition-all cursor-pointer backdrop-blur-sm bg-opacity-90"
+            >
+              <HelpCircle className="w-4 h-4 text-theme-text group-hover:text-blue-400 transition-colors" />
+              <span className="text-theme-text-light font-bold text-sm">复刻工具</span>
+            </button>
+
             {/* Feedback Button */}
             <button 
               onClick={() => setIsFeedbackOpen(true)}
@@ -348,158 +397,160 @@ const App: React.FC = () => {
           )}
 
           {/* State 5: Results */}
-          {appState === AppState.COMPLETED && result && (
-            <div ref={resultRef} className="space-y-8 animate-fade-in-up pb-20">
-              
-              {/* Action Bar */}
-              <div className="bg-theme-surface/90 p-4 rounded-theme shadow-theme-card backdrop-blur-md sticky top-6 z-40 flex flex-wrap items-center justify-between gap-4 border-theme border-theme-border">
-                <div className="flex items-center gap-3 px-2">
-                  <div className="bg-theme-primary p-2 rounded-lg text-theme-surface">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <h2 className="text-xl font-cute text-theme-text truncate max-w-xs">{result.title}</h2>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                   {/* Main reset button still here for accessibility */}
-                  <button 
-                    onClick={resetApp}
-                    className="p-2.5 bg-theme-bg hover:brightness-95 text-theme-text-light rounded-theme transition-colors"
-                  >
-                    <RefreshCw className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
+          {appState === AppState.COMPLETED && (
+             <div ref={resultRef}>
+                {/* 5A. Deep Analysis Result */}
+                {deepResult && (
+                  <DeepAnalysisView result={deepResult} onReset={resetApp} />
+                )}
 
-              {/* Mood Card */}
-              <div className="bg-theme-surface/95 backdrop-blur-sm rounded-theme p-8 shadow-theme-card border-l-8 border-theme-primary border-theme border-theme-border">
-                 <div className="flex justify-between items-start mb-3">
-                   <h3 className="text-xl font-cute text-theme-primary">🎨 {uiLang === 'cn' ? "风格与氛围分析" : "Mood Analysis"}</h3>
-                   {/* Lang Toggle for UI */}
-                   <div className="flex bg-theme-bg p-1 rounded-lg">
-                      <button 
-                        onClick={() => setUiLang('cn')}
-                        className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${uiLang === 'cn' ? 'bg-theme-secondary text-theme-surface shadow-sm' : 'text-theme-text-light'}`}
-                      >
-                        CN
-                      </button>
-                      <button 
-                        onClick={() => setUiLang('en')}
-                        className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${uiLang === 'en' ? 'bg-theme-secondary text-theme-surface shadow-sm' : 'text-theme-text-light'}`}
-                      >
-                        EN
-                      </button>
-                   </div>
-                 </div>
-                 <p className="text-theme-text leading-relaxed font-medium">{result.overallMood}</p>
-              </div>
-
-              {/* Platform Viral Matrix */}
-              <div className="backdrop-blur-sm bg-opacity-90 rounded-theme">
-                <h3 className="text-xl font-cute text-white drop-shadow-md mb-4 flex items-center gap-2 pl-2">
-                   <span className="text-2xl">🔥</span> {uiLang === 'cn' ? "全平台爆款文案矩阵" : "Viral Copy Matrix"}
-                </h3>
-                <PlatformMatrix data={result.platformMatrix} uiLang={uiLang} />
-              </div>
-
-              {/* Scene List */}
-              <div className="space-y-6">
-                 <h3 className="text-xl font-cute text-white drop-shadow-md mb-2 flex items-center gap-2 pl-2 mt-8">
-                   <span className="text-2xl">📸</span> {t.scene}
-                </h3>
-                {result.scenes.map((scene, idx) => (
-                  <ResultCard 
-                    key={idx} 
-                    scene={scene} 
-                    index={idx} 
-                    videoSource={videoUrl} 
-                    uiLang={uiLang}
-                  />
-                ))}
-              </div>
-
-              {/* Footer Summary Blocks */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
-                {/* Full Prompt Block with Bilingual Toggle */}
-                <div className="bg-theme-surface/95 backdrop-blur-sm rounded-theme p-8 shadow-theme-card border-theme border-theme-border">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-cute text-theme-text flex items-center gap-2">
-                      <Wand2 className="w-5 h-5 text-theme-secondary" /> {t.fullPromptTitle}
-                    </h3>
+                {/* 5B. Viral Analysis Result */}
+                {result && (
+                  <div className="space-y-8 animate-fade-in-up pb-20">
                     
-                    {/* Language Toggle */}
-                    <div className="flex bg-theme-bg p-1 rounded-lg">
-                      <button 
-                        onClick={() => setPromptLang('cn')}
-                        className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${promptLang === 'cn' ? 'bg-theme-primary text-theme-surface shadow-sm' : 'text-theme-text-light'}`}
-                      >
-                        中文
-                      </button>
-                      <button 
-                        onClick={() => setPromptLang('en')}
-                        className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${promptLang === 'en' ? 'bg-theme-primary text-theme-surface shadow-sm' : 'text-theme-text-light'}`}
-                      >
-                        EN
-                      </button>
+                    {/* Action Bar */}
+                    <div className="bg-theme-surface/90 p-4 rounded-theme shadow-theme-card backdrop-blur-md sticky top-6 z-40 flex flex-wrap items-center justify-between gap-4 border-theme border-theme-border">
+                      <div className="flex items-center gap-3 px-2">
+                        <div className="bg-theme-primary p-2 rounded-lg text-theme-surface">
+                          <Sparkles className="w-5 h-5" />
+                        </div>
+                        <h2 className="text-xl font-cute text-theme-text truncate max-w-xs">{result.title}</h2>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <button 
+                          onClick={resetApp}
+                          className="p-2.5 bg-theme-bg hover:brightness-95 text-theme-text-light rounded-theme transition-colors"
+                        >
+                          <RefreshCw className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="bg-theme-bg p-4 rounded-lg text-theme-text text-sm leading-loose shadow-inner h-64 overflow-y-auto custom-scrollbar mb-4 font-mono">
-                    {result.recreationPrompt[promptLang]}
-                  </div>
-                   <button 
-                    onClick={() => copyToClipboard(result.recreationPrompt[promptLang], "提示词已复制！")}
-                    className="w-full py-3 bg-theme-secondary text-theme-surface font-bold rounded-theme shadow-theme-btn hover:brightness-110 transition-colors"
-                  >
-                    <Globe className="w-4 h-4 inline mr-2" />
-                    {t.fullPromptBtn} ({promptLang === 'cn' ? 'CN' : 'EN'})
-                  </button>
-                </div>
 
-                 {/* Full Script Block */}
-                <div className="bg-theme-surface/95 backdrop-blur-sm rounded-theme p-8 shadow-theme-card border-theme border-theme-border">
-                  <h3 className="text-xl font-cute text-theme-text mb-4 flex items-center gap-2">
-                    <PenTool className="w-5 h-5 text-theme-primary" /> {t.fullScriptTitle}
-                  </h3>
-                  <div className="bg-theme-bg p-4 rounded-lg text-theme-text text-sm leading-loose whitespace-pre-wrap shadow-inner h-64 overflow-y-auto custom-scrollbar mb-4">
-                    {result.fullCreativeScript}
+                    {/* Mood Card */}
+                    <div className="bg-theme-surface/95 backdrop-blur-sm rounded-theme p-8 shadow-theme-card border-l-8 border-theme-primary border-theme border-theme-border">
+                      <div className="flex justify-between items-start mb-3">
+                        <h3 className="text-xl font-cute text-theme-primary">🎨 {uiLang === 'cn' ? "风格与氛围分析" : "Mood Analysis"}</h3>
+                        <div className="flex bg-theme-bg p-1 rounded-lg">
+                            <button 
+                              onClick={() => setUiLang('cn')}
+                              className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${uiLang === 'cn' ? 'bg-theme-secondary text-theme-surface shadow-sm' : 'text-theme-text-light'}`}
+                            >
+                              CN
+                            </button>
+                            <button 
+                              onClick={() => setUiLang('en')}
+                              className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${uiLang === 'en' ? 'bg-theme-secondary text-theme-surface shadow-sm' : 'text-theme-text-light'}`}
+                            >
+                              EN
+                            </button>
+                        </div>
+                      </div>
+                      <p className="text-theme-text leading-relaxed font-medium">{result.overallMood}</p>
+                    </div>
+
+                    {/* Platform Viral Matrix */}
+                    <div className="backdrop-blur-sm bg-opacity-90 rounded-theme">
+                      <h3 className="text-xl font-cute text-white drop-shadow-md mb-4 flex items-center gap-2 pl-2">
+                        <span className="text-2xl">🔥</span> {uiLang === 'cn' ? "全平台爆款文案矩阵" : "Viral Copy Matrix"}
+                      </h3>
+                      <PlatformMatrix data={result.platformMatrix} uiLang={uiLang} />
+                    </div>
+
+                    {/* Scene List */}
+                    <div className="space-y-6">
+                      <h3 className="text-xl font-cute text-white drop-shadow-md mb-2 flex items-center gap-2 pl-2 mt-8">
+                        <span className="text-2xl">📸</span> {t.scene}
+                      </h3>
+                      {result.scenes.map((scene, idx) => (
+                        <ResultCard 
+                          key={idx} 
+                          scene={scene} 
+                          index={idx} 
+                          videoSource={videoUrl} 
+                          uiLang={uiLang}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Footer Summary Blocks */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
+                      <div className="bg-theme-surface/95 backdrop-blur-sm rounded-theme p-8 shadow-theme-card border-theme border-theme-border">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-xl font-cute text-theme-text flex items-center gap-2">
+                            <Wand2 className="w-5 h-5 text-theme-secondary" /> {t.fullPromptTitle}
+                          </h3>
+                          <div className="flex bg-theme-bg p-1 rounded-lg">
+                            <button 
+                              onClick={() => setPromptLang('cn')}
+                              className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${promptLang === 'cn' ? 'bg-theme-primary text-theme-surface shadow-sm' : 'text-theme-text-light'}`}
+                            >
+                              中文
+                            </button>
+                            <button 
+                              onClick={() => setPromptLang('en')}
+                              className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${promptLang === 'en' ? 'bg-theme-primary text-theme-surface shadow-sm' : 'text-theme-text-light'}`}
+                            >
+                              EN
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-theme-bg p-4 rounded-lg text-theme-text text-sm leading-loose shadow-inner h-64 overflow-y-auto custom-scrollbar mb-4 font-mono">
+                          {result.recreationPrompt[promptLang]}
+                        </div>
+                        <button 
+                          onClick={() => copyToClipboard(result.recreationPrompt[promptLang], "提示词已复制！")}
+                          className="w-full py-3 bg-theme-secondary text-theme-surface font-bold rounded-theme shadow-theme-btn hover:brightness-110 transition-colors"
+                        >
+                          <Globe className="w-4 h-4 inline mr-2" />
+                          {t.fullPromptBtn} ({promptLang === 'cn' ? 'CN' : 'EN'})
+                        </button>
+                      </div>
+
+                      <div className="bg-theme-surface/95 backdrop-blur-sm rounded-theme p-8 shadow-theme-card border-theme border-theme-border">
+                        <h3 className="text-xl font-cute text-theme-text mb-4 flex items-center gap-2">
+                          <PenTool className="w-5 h-5 text-theme-primary" /> {t.fullScriptTitle}
+                        </h3>
+                        <div className="bg-theme-bg p-4 rounded-lg text-theme-text text-sm leading-loose whitespace-pre-wrap shadow-inner h-64 overflow-y-auto custom-scrollbar mb-4">
+                          {result.fullCreativeScript}
+                        </div>
+                        <button 
+                          onClick={() => copyToClipboard(result.fullCreativeScript, "已复制！")}
+                          className="w-full py-3 bg-theme-primary text-theme-surface font-bold rounded-theme shadow-theme-btn hover:brightness-110 transition-colors"
+                        >
+                          {t.fullScriptBtn}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* NEW ANALYSIS GUIDE */}
+                    <div className="mt-20 py-12 px-6 relative overflow-hidden rounded-theme bg-gradient-to-r from-theme-primary to-theme-secondary shadow-theme-card text-center group cursor-pointer" onClick={resetApp}>
+                        <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 animate-spin-slow pointer-events-none"></div>
+                        <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors"></div>
+                        
+                        <div className="absolute top-10 left-10 text-4xl animate-bounce delay-100">🚀</div>
+                        <div className="absolute bottom-10 right-10 text-4xl animate-bounce delay-700">💎</div>
+
+                        <div className="relative z-10">
+                          <h2 className="text-4xl md:text-5xl font-cute text-white mb-4 drop-shadow-lg animate-pulse">
+                            {t.nextAnalysisTitle}
+                          </h2>
+                          <p className="text-white/90 text-lg md:text-xl font-bold mb-8 max-w-2xl mx-auto">
+                            {t.nextAnalysisDesc}
+                          </p>
+                          
+                          <button className="inline-flex items-center gap-3 px-10 py-5 bg-white text-theme-primary rounded-full font-black text-xl shadow-[0_10px_20px_rgba(0,0,0,0.2)] hover:scale-105 active:scale-95 transition-all group-hover:shadow-[0_0_30px_rgba(255,255,255,0.6)]">
+                            <Play className="w-6 h-6 fill-current" />
+                            {t.btnRestart}
+                            <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
+                          </button>
+                        </div>
+                    </div>
+
                   </div>
-                  <button 
-                    onClick={() => copyToClipboard(result.fullCreativeScript, "已复制！")}
-                    className="w-full py-3 bg-theme-primary text-theme-surface font-bold rounded-theme shadow-theme-btn hover:brightness-110 transition-colors"
-                  >
-                    {t.fullScriptBtn}
-                  </button>
-                </div>
-              </div>
-
-              {/* NEW ANALYSIS GUIDE - COOL ANIMATED SECTION */}
-              <div className="mt-20 py-12 px-6 relative overflow-hidden rounded-theme bg-gradient-to-r from-theme-primary to-theme-secondary shadow-theme-card text-center group cursor-pointer" onClick={resetApp}>
-                  {/* Animated Background Shapes */}
-                  <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 animate-spin-slow pointer-events-none"></div>
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors"></div>
-                  
-                  {/* Floating Particles */}
-                  <div className="absolute top-10 left-10 text-4xl animate-bounce delay-100">🚀</div>
-                  <div className="absolute bottom-10 right-10 text-4xl animate-bounce delay-700">💎</div>
-
-                  <div className="relative z-10">
-                    <h2 className="text-4xl md:text-5xl font-cute text-white mb-4 drop-shadow-lg animate-pulse">
-                      {t.nextAnalysisTitle}
-                    </h2>
-                    <p className="text-white/90 text-lg md:text-xl font-bold mb-8 max-w-2xl mx-auto">
-                      {t.nextAnalysisDesc}
-                    </p>
-                    
-                    <button className="inline-flex items-center gap-3 px-10 py-5 bg-white text-theme-primary rounded-full font-black text-xl shadow-[0_10px_20px_rgba(0,0,0,0.2)] hover:scale-105 active:scale-95 transition-all group-hover:shadow-[0_0_30px_rgba(255,255,255,0.6)]">
-                      <Play className="w-6 h-6 fill-current" />
-                      {t.btnRestart}
-                      <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
-                    </button>
-                  </div>
-              </div>
-
-            </div>
+                )}
+             </div>
           )}
 
         </div>

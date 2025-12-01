@@ -60,6 +60,14 @@ export const TRANSLATIONS = {
     wmProcessing: "AI消除中...",
     wmSave: "保存图片",
     wmReset: "重置",
+
+    // Templates
+    templateTitle: "AI 爆款提示词库",
+    templateDesc: "复制高频爆款提示词，搭配二创视频。",
+    catAnime: "二次元/动漫",
+    catCinematic: "电影感/大片",
+    catNature: "自然/风景",
+    catSurreal: "超现实/创意",
   },
   en: {
     // Header
@@ -121,5 +129,13 @@ export const TRANSLATIONS = {
     wmProcessing: "Erasing...",
     wmSave: "Save Image",
     wmReset: "Reset",
+
+    // Templates
+    templateTitle: "Viral Prompt Library",
+    templateDesc: "Copy high-frequency viral visual prompts.",
+    catAnime: "Anime",
+    catCinematic: "Cinematic",
+    catNature: "Nature",
+    catSurreal: "Surreal",
   }
 };

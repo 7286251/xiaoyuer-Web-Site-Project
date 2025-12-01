@@ -2,9 +2,11 @@
 import React, { useState } from 'react';
 import { Copy, Check, Hash, Type, AlignLeft, Youtube, Video, PlayCircle } from 'lucide-react';
 import { PlatformMatrix as PlatformMatrixType, PlatformContent } from '../types';
+import { TRANSLATIONS } from '../utils/translations';
 
 interface PlatformMatrixProps {
   data: PlatformMatrixType;
+  uiLang: 'cn' | 'en';
 }
 
 type PlatformKey = keyof PlatformMatrixType;
@@ -23,9 +25,10 @@ const PLATFORMS: { key: PlatformKey; label: string; icon: React.ReactNode }[] = 
   { key: 'tiktok', label: 'TikTok', icon: <span className="font-black">🎼</span> },
 ];
 
-export const PlatformMatrix: React.FC<PlatformMatrixProps> = ({ data }) => {
+export const PlatformMatrix: React.FC<PlatformMatrixProps> = ({ data, uiLang }) => {
   const [activeTab, setActiveTab] = useState<PlatformKey>('douyin');
   const [copied, setCopied] = useState<string | null>(null);
+  const t = TRANSLATIONS[uiLang];
 
   const handleCopy = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -63,7 +66,7 @@ export const PlatformMatrix: React.FC<PlatformMatrixProps> = ({ data }) => {
         <div className="bg-theme-bg rounded-theme p-4 shadow-theme-inset border border-theme-border">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-theme-secondary font-cute">
-              <Type className="w-4 h-4" /> <span>爆款标题</span>
+              <Type className="w-4 h-4" /> <span>{t.viralTitle}</span>
             </div>
             <button 
               onClick={() => handleCopy(currentData.title, 'title')}
@@ -79,7 +82,7 @@ export const PlatformMatrix: React.FC<PlatformMatrixProps> = ({ data }) => {
         <div className="bg-theme-bg rounded-theme p-4 shadow-theme-inset border border-theme-border relative group">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-theme-text-light font-cute">
-              <AlignLeft className="w-4 h-4" /> <span>文案内容</span>
+              <AlignLeft className="w-4 h-4" /> <span>{t.viralContent}</span>
             </div>
             <button 
               onClick={() => handleCopy(currentData.content, 'content')}

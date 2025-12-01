@@ -1,14 +1,15 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, Scissors, Check, X, RotateCcw, Clock, Monitor, Loader2 } from 'lucide-react';
+import { Play, Pause, Scissors, Check, X, RotateCcw, Clock, Monitor, Loader2, Sparkles, Microscope } from 'lucide-react';
 
 interface VideoTrimmerProps {
   file: File;
-  onConfirm: (start: number, end: number, resolution: string) => void;
+  onConfirm: (start: number, end: number, resolution: string, mode: 'viral' | 'deep') => void;
   onCancel: () => void;
+  uiLang: 'cn' | 'en';
 }
 
-export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ file, onConfirm, onCancel }) => {
+export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ file, onConfirm, onCancel, uiLang }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -96,7 +97,9 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ file, onConfirm, onC
             <div className="bg-theme-secondary p-2 rounded-lg text-theme-surface shadow-theme-btn">
               <Scissors className="w-6 h-6" />
             </div>
-            <h2 className="text-2xl font-cute text-theme-text">裁剪片段与设置</h2>
+            <h2 className="text-2xl font-cute text-theme-text">
+               {uiLang === 'cn' ? "裁剪与分析模式" : "Trim & Analysis Mode"}
+            </h2>
           </div>
           <button 
             onClick={onCancel}
@@ -176,7 +179,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ file, onConfirm, onC
         </div>
 
         {/* Controls Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* Left: Trim Controls */}
           <div className={`space-y-4 ${!isReady ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -226,7 +229,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ file, onConfirm, onC
           </div>
 
           {/* Right: Actions & Settings */}
-          <div className="flex flex-col justify-end space-y-4">
+          <div className="flex flex-col gap-6">
              <div className="flex gap-4">
                 <div className="flex-1 flex flex-col gap-1">
                     <label className="text-xs text-theme-text-light font-cute ml-1 flex items-center gap-1">
@@ -257,23 +260,32 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ file, onConfirm, onC
                 </div>
              </div>
              
-             <div className="flex gap-4">
+             <div className="flex flex-col gap-3">
+               
+               {/* Primary: Viral Analysis */}
                <button 
-                 onClick={onCancel}
-                 className="flex-1 py-4 bg-theme-bg hover:brightness-95 text-theme-text rounded-theme font-bold transition-colors shadow-theme-btn"
-               >
-                 取消
-               </button>
-               <button 
-                 onClick={() => onConfirm(startTime, endTime, resolution)}
+                 onClick={() => onConfirm(startTime, endTime, resolution, 'viral')}
                  disabled={!isReady}
-                 className={`flex-[2] py-4 bg-theme-primary text-theme-surface rounded-theme font-bold shadow-theme-btn flex items-center justify-center gap-2 transition-all
+                 className={`w-full py-4 bg-theme-primary text-theme-surface rounded-theme font-bold shadow-theme-btn flex items-center justify-center gap-2 transition-all group
                    ${!isReady ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110 active:scale-95'}
                  `}
                >
-                 <Check className="w-5 h-5" />
-                 确认并分析
+                 <Sparkles className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                 {uiLang === 'cn' ? "确认并拆解 (爆款文案/镜头)" : "Viral Dismantling"}
                </button>
+
+               {/* Secondary: Deep Analysis (RENAMED) */}
+               <button 
+                 onClick={() => onConfirm(startTime, endTime, resolution, 'deep')}
+                 disabled={!isReady}
+                 className={`w-full py-3 bg-theme-surface text-theme-secondary border-2 border-theme-secondary rounded-theme font-bold shadow-sm flex items-center justify-center gap-2 transition-all group
+                   ${!isReady ? 'opacity-50 cursor-not-allowed' : 'hover:bg-theme-secondary hover:text-white active:scale-95'}
+                 `}
+               >
+                 <Microscope className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                 {uiLang === 'cn' ? "详细拆解方案 (10维全息报告)" : "Detailed Dismantling Plan"}
+               </button>
+
              </div>
           </div>
 

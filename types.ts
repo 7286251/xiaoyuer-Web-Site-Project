@@ -52,6 +52,25 @@ export enum AppState {
   ERROR = 'ERROR'
 }
 
+// --- New Deep Analysis Types ---
+
+export interface DeepShot {
+  timestamp: string;
+  visual_atmosphere: string; // Points 3, 5
+  character_performance: string; // Points 8, 6
+  story_plot: string; // Points 4, 6
+  camera_language: string; // Point 9
+  audio_design: string; // Point 7
+}
+
+export interface DeepAnalysisResult {
+  title: string;
+  theme: string; // Point 2
+  consistency: string; // Point 1
+  bgm: string; // Point 10
+  shots: DeepShot[];
+}
+
 // --- Theme System Types ---
 
 export type ThemeStyle = 'clay' | 'brutalism' | 'neumorphism' | 'sticker' | 'minimal' | 'flat';

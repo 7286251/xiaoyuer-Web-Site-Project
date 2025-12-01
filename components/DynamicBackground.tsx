@@ -26,14 +26,22 @@ export const DynamicBackground: React.FC<DynamicBackgroundProps> = ({ themeStyle
   if (themeStyle === 'brutalism') {
     return (
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden bg-theme-bg theme-transition">
-         <div className="absolute inset-0 opacity-20" 
+         {/* Dot Grid Pattern */}
+         <div className="absolute inset-0 opacity-15" 
               style={{
-                backgroundImage: 'radial-gradient(var(--color-text) 1px, transparent 1px)',
-                backgroundSize: '20px 20px'
+                backgroundImage: 'radial-gradient(var(--color-text) 2px, transparent 2px)',
+                backgroundSize: '30px 30px'
               }}>
          </div>
-         <div className="absolute top-20 left-20 w-40 h-40 border-4 border-theme-text opacity-10 rotate-12"></div>
-         <div className="absolute bottom-20 right-20 w-60 h-60 bg-theme-primary rounded-full opacity-20 blur-xl"></div>
+         
+         {/* Geometric Shapes with Hard Borders */}
+         <div className="absolute top-[15%] left-[5%] w-32 h-32 border-4 border-theme-text opacity-30 rotate-12 bg-theme-primary/20"></div>
+         
+         <div className="absolute bottom-[20%] right-[10%] w-48 h-48 rounded-full border-4 border-theme-text opacity-30 bg-theme-secondary/20 -rotate-12"></div>
+         
+         <div className="absolute top-[40%] right-[25%] w-16 h-16 bg-theme-text opacity-10 rotate-45"></div>
+         
+         <div className="absolute bottom-[10%] left-[20%] w-0 h-0 border-l-[50px] border-l-transparent border-t-[75px] border-t-theme-text border-r-[50px] border-r-transparent opacity-10 rotate-[25deg]"></div>
       </div>
     );
   }

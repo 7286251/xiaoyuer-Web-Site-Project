@@ -1,18 +1,22 @@
+
 import React, { useState, useEffect } from 'react';
 import { Copy, Check, Image as ImageIcon, User, Mic, PenTool, Loader2, Zap, Music } from 'lucide-react';
 import { SceneAnalysis } from '../types';
+import { TRANSLATIONS } from '../utils/translations';
 
 interface ResultCardProps {
   scene: SceneAnalysis;
   index: number;
   videoSource?: string;
+  uiLang: 'cn' | 'en';
 }
 
-export const ResultCard: React.FC<ResultCardProps> = ({ scene, index, videoSource }) => {
+export const ResultCard: React.FC<ResultCardProps> = ({ scene, index, videoSource, uiLang }) => {
   const [copied, setCopied] = useState<string | null>(null);
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [loadingThumb, setLoadingThumb] = useState(true);
   const [visualLang, setVisualLang] = useState<'cn' | 'en'>('en'); // Default to English prompt for MJ/Flux
+  const t = TRANSLATIONS[uiLang];
 
   // Thumbnail Generation Logic
   useEffect(() => {
@@ -75,7 +79,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ scene, index, videoSourc
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 border-b border-theme-border pb-4">
         <div className="flex items-center gap-4">
           <div className="bg-theme-secondary text-theme-surface px-4 py-1.5 rounded-lg shadow-theme-btn text-sm font-cute tracking-wide">
-            场景 {index + 1}
+            {t.scene} {index + 1}
           </div>
           <span className="text-theme-primary font-mono font-bold text-lg bg-theme-bg px-3 py-1 rounded-lg shadow-theme-inset">
             {scene.timestamp}
@@ -100,7 +104,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ scene, index, videoSourc
               <img src={thumbnail} alt="Scene Preview" className="w-full h-full object-cover" />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-theme-text-light font-cute">
-                无预览
+                {t.noPreview}
               </div>
             )}
           </div>
@@ -111,7 +115,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ scene, index, videoSourc
                <div className="bg-theme-surface rounded-[calc(var(--border-radius)-2px)] p-4 h-full">
                  <div className="flex items-center gap-2 mb-2">
                    <Zap className="w-4 h-4 text-theme-primary fill-current animate-pulse" />
-                   <span className="text-xs font-bold text-theme-primary uppercase">黄金三秒钩子分析</span>
+                   <span className="text-xs font-bold text-theme-primary uppercase">{t.goldenHookTitle}</span>
                  </div>
                  <p className="text-sm text-theme-text font-bold leading-snug">
                    {scene.goldenHook}
@@ -127,7 +131,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ scene, index, videoSourc
                  <User className="w-4 h-4" />
                </div>
                <div className="flex-1">
-                 <p className="text-xs text-theme-text-light font-bold mb-1">人物特征</p>
+                 <p className="text-xs text-theme-text-light font-bold mb-1">{t.charFeatures}</p>
                  <p className="text-sm text-theme-text leading-relaxed">{scene.characters}</p>
                </div>
             </div>
@@ -137,7 +141,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ scene, index, videoSourc
                  <Music className="w-4 h-4" />
                </div>
                <div className="flex-1">
-                 <p className="text-xs text-theme-text-light font-bold mb-1">背景音乐/音效</p>
+                 <p className="text-xs text-theme-text-light font-bold mb-1">{t.bgMusic}</p>
                  <p className="text-sm text-theme-text leading-relaxed">{scene.audio}</p>
                </div>
             </div>
@@ -151,7 +155,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ scene, index, videoSourc
           <div className="flex flex-col h-full bg-theme-surface rounded-theme p-5 shadow-theme-card border-2 border-transparent hover:border-theme-secondary transition-colors relative">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 text-theme-secondary font-cute text-lg">
-                <ImageIcon className="w-5 h-5" /> <span>画面反推提示词</span>
+                <ImageIcon className="w-5 h-5" /> <span>{t.visualPromptTitle}</span>
               </div>
               
               <div className="flex items-center gap-2">
@@ -174,6 +178,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ scene, index, videoSourc
                  <button 
                    onClick={() => handleCopy(scene.visualPrompt[visualLang], 'visual')}
                    className="bg-theme-secondary text-theme-surface p-2 rounded-lg hover:brightness-110 transition-colors shadow-sm"
+                   title={t.copyVisual}
                  >
                    {copied === 'visual' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                  </button>
@@ -192,22 +197,23 @@ export const ResultCard: React.FC<ResultCardProps> = ({ scene, index, videoSourc
             <div className="bg-theme-bg rounded-theme p-5 shadow-theme-inset border-theme border-theme-border">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 text-theme-text-light font-cute">
-                  <Mic className="w-4 h-4" /> <span>原始对白</span>
+                  <Mic className="w-4 h-4" /> <span>{t.originalScript}</span>
                 </div>
               </div>
               <div className="text-sm text-theme-text leading-relaxed min-h-[80px]">
-                {scene.originalScript || "无对白"}
+                {scene.originalScript || t.noScript}
               </div>
             </div>
 
             <div className="bg-theme-surface rounded-theme p-5 shadow-theme-card border-2 border-theme-primary/30 relative overflow-hidden group">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2 text-theme-primary font-cute text-lg">
-                  <PenTool className="w-4 h-4" /> <span>二创旁白</span>
+                  <PenTool className="w-4 h-4" /> <span>{t.creativeScript}</span>
                 </div>
                 <button 
                   onClick={() => handleCopy(scene.rewrittenScript, 'rewrite')}
                   className="bg-theme-primary text-theme-surface p-1.5 rounded-lg hover:brightness-110 transition-colors shadow-sm"
+                  title={t.copyScript}
                 >
                   {copied === 'rewrite' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
